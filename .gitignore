@@ -1,0 +1,39 @@
+# Backend
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/bin/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# Frontend
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+frontend/.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local development
+.env
+.env.local
+*.pid
+*.seed
+
+# Database
+*.db
+*.sqlite
+postgres_data/

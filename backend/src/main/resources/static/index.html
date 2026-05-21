@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Integration AI Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #4a9eff;
+            --accent-hover: #3a8eef;
+            --user-bubble: #4a9eff;
+            --assistant-bubble: #2a2a4a;
+            --border: #2a2a4a;
+            --sidebar-bg: #12122a;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); height: 100vh; overflow: hidden; }
+        .app { display: flex; height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+        .sidebar-header h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+        .sidebar-search { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; outline: none; }
+        .sidebar-search:focus { border-color: var(--accent); }
+        .file-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .file-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; transition: background 0.15s; border: 1px solid transparent; }
+        .file-item:hover { background: var(--bg-secondary); }
+        .file-item.selected { background: rgba(74,158,255,0.1); border-color: rgba(74,158,255,0.3); }
+        .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        .file-path { font-size: 10px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+        .reindex-btn { width: 100%; padding: 8px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 500; cursor: pointer; }
+        .reindex-btn:hover { background: var(--accent-hover); }
+        .file-count { text-align: center; font-size: 10px; color: var(--text-secondary); margin-top: 8px; }
+
+        /* Main */
+        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .topbar { height: 50px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; font-size: 13px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+        .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
+        .badge-yellow { background: rgba(234,179,8,0.15); color: #facc15; }
+        .badge-blue { background: rgba(74,158,255,0.15); color: #4a9eff; }
+
+        /* Chat */
+        .chat-area { flex: 1; overflow-y: auto; padding: 24px; }
+        .chat-empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .chat-empty h2 { font-size: 24px; margin: 16px 0 8px; }
+        .chat-empty p { color: var(--text-secondary); max-width: 400px; }
+        .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px; max-width: 520px; }
+        .suggestion { text-align: left; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+        .suggestion:hover { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--accent); }
+        .messages { max-width: 800px; margin: 0 auto; }
+        .message { margin-bottom: 16px; display: flex; }
+        .message.user { justify-content: flex-end; }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
+        .message.user .bubble { background: var(--user-bubble); color: white; border-bottom-right-radius: 4px; }
+        .message.assistant .bubble { background: var(--assistant-bubble); border-bottom-left-radius: 4px; }
+        .bubble pre { background: #0d0d1a; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; font-size: 12px; }
+        .bubble code { font-family: 'Courier New', monospace; font-size: 13px; }
+        .citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px; color: var(--text-secondary); }
+        .typing { display: flex; gap: 4px; padding: 12px 16px; background: var(--assistant-bubble); border-radius: 16px; border-bottom-left-radius: 4px; width: fit-content; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); animation: bounce 1.4s infinite ease-in-out; }
+        .dot:nth-child(2) { animation-delay: 0.16s; }
+        .dot:nth-child(3) { animation-delay: 0.32s; }
+        @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+
+        /* Input */
+        .input-area { border-top: 1px solid var(--border); padding: 16px; }
+        .input-row { max-width: 800px; margin: 0 auto; display: flex; gap: 8px; }
+        .input-box { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; resize: none; outline: none; font-family: inherit; min-height: 44px; max-height: 200px; }
+        .input-box:focus { border-color: var(--accent); }
+        .send-btn { padding: 12px 20px; border-radius: 12px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 500; cursor: pointer; align-self: flex-end; }
+        .send-btn:hover { background: var(--accent-hover); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .selected-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; max-width: 800px; margin-left: auto; margin-right: auto; }
+        .tag { font-size: 10px; background: rgba(74,158,255,0.15); color: #4a9eff; padding: 2px 8px; border-radius: 10px; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="app" id="app">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>📁 Project Files</h2>
+            <input class="sidebar-search" id="fileSearch" placeholder="Search files..." oninput="filterFiles()">
+        </div>
+        <div class="file-list" id="fileList"></div>
+        <div class="sidebar-footer">
+            <button class="reindex-btn" onclick="reindex()">🔄 Re-index Files</button>
+            <div class="file-count" id="fileCount">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="topbar">
+            <span class="status-dot"></span>
+            <strong>Grok AI</strong>
+            <span style="flex:1"></span>
+            <span class="badge badge-green" id="statusBadge">Loading...</span>
+            <span class="badge badge-blue" id="selectedBadge" style="display:none">0 selected</span>
+        </div>
+
+        <div class="chat-area" id="chatArea">
+            <div class="chat-empty" id="emptyState">
+                <div style="font-size:48px">🏗️</div>
+                <h2>Spring Integration Assistant</h2>
+                <p>Ask me about your Spring Integration project architecture, message flows, and configurations.</p>
+                <div class="suggestions">
+                    <button class="suggestion" onclick="sendMessage('Explain the holdingInquiry integration flow')">Explain the holdingInquiry integration flow</button>
+                    <button class="suggestion" onclick="sendMessage('What channels are defined in ixconfigurations.xml?')">What channels are defined in ixconfigurations.xml?</button>
+                    <button class="suggestion" onclick="sendMessage('List all outbound integrations')">List all outbound integrations</button>
+                    <button class="suggestion" onclick="sendMessage('How does error handling work in this project?')">How does error handling work in this project?</button>
+                </div>
+            </div>
+            <div class="messages" id="messages" style="display:none"></div>
+        </div>
+
+        <div class="input-area">
+            <div class="selected-tags" id="selectedTags"></div>
+            <div class="input-row">
+                <textarea class="input-box" id="inputBox" placeholder="Ask about your Spring Integration project..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let files = [];
+let selectedFiles = [];
+let sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+let isLoading = false;
+
+// Init
+loadFiles();
+loadStatus();
+setInterval(loadStatus, 10000);
+
+document.getElementById('inputBox').addEventListener('input', function() {
+    document.getElementById('sendBtn').disabled = !this.value.trim();
+});
+
+async function loadFiles() {
+    try {
+        const res = await fetch('/api/files');
+        files = await res.json();
+        renderFiles();
+    } catch(e) { console.error(e); }
+}
+
+async function loadStatus() {
+    try {
+        const res = await fetch('/api/files/status');
+        const s = await res.json();
+        const badge = document.getElementById('statusBadge');
+        if (s.status === 'COMPLETE') {
+            badge.className = 'badge badge-green';
+            badge.textContent = '✓ ' + s.indexedFiles + ' files | ' + s.totalChunks + ' chunks';
+        } else if (s.status === 'INDEXING') {
+            badge.className = 'badge badge-yellow';
+            badge.textContent = '⏳ Indexing...';
+        } else {
+            badge.textContent = s.status;
+        }
+    } catch(e) {}
+}
+
+function filterFiles() {
+    renderFiles();
+}
+
+function renderFiles() {
+    const search = document.getElementById('fileSearch').value.toLowerCase();
+    const filtered = files.filter(f => f.fileName.toLowerCase().includes(search) || (f.relativePath||'').toLowerCase().includes(search));
+    const icons = {java:'☕',xml:'📄',properties:'🔧',yaml:'⚙️',yml:'⚙️',txt:'📝',md:'📖'};
+    const list = document.getElementById('fileList');
+    list.innerHTML = filtered.map(f => {
+        const sel = selectedFiles.includes(f.absolutePath) ? ' selected' : '';
+        return '<div class="file-item'+sel+'" onclick="toggleFile(\''+f.absolutePath.replace(/'/g,"\\'")+'\')" title="'+f.relativePath+'">'
+            + '<span>'+(icons[f.fileType]||'📄')+'</span>'
+            + '<div style="min-width:0;flex:1"><div class="file-name">'+f.fileName+'</div><div class="file-path">'+(f.relativePath||'')+'</div></div>'
+            + (sel ? '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>' : '')
+            + '</div>';
+    }).join('');
+    document.getElementById('fileCount').textContent = files.length + ' files • ' + selectedFiles.length + ' selected';
+}
+
+function toggleFile(path) {
+    const idx = selectedFiles.indexOf(path);
+    if (idx >= 0) selectedFiles.splice(idx, 1);
+    else selectedFiles.push(path);
+    renderFiles();
+    updateSelectedUI();
+}
+
+function updateSelectedUI() {
+    const badge = document.getElementById('selectedBadge');
+    const tags = document.getElementById('selectedTags');
+    if (selectedFiles.length > 0) {
+        badge.style.display = '';
+        badge.textContent = selectedFiles.length + ' selected';
+        tags.innerHTML = selectedFiles.slice(0,3).map(f => '<span class="tag">'+f.split('/').pop()+'</span>').join('')
+            + (selectedFiles.length > 3 ? '<span class="tag">+' + (selectedFiles.length-3) + ' more</span>' : '');
+    } else {
+        badge.style.display = 'none';
+        tags.innerHTML = '';
+    }
+}
+
+async function reindex() {
+    await fetch('/api/files/reindex', {method:'POST'});
+    setTimeout(loadFiles, 3000);
+    setTimeout(loadStatus, 3000);
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+async function sendMessage(text) {
+    const msg = text || document.getElementById('inputBox').value.trim();
+    if (!msg || isLoading) return;
+
+    document.getElementById('inputBox').value = '';
+    document.getElementById('inputBox').style.height = 'auto';
+    document.getElementById('sendBtn').disabled = true;
+
+    // Show messages area
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('messages').style.display = '';
+
+    // Add user message
+    addMessage('user', msg);
+    isLoading = true;
+    showTyping();
+
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ message: msg, sessionId: sessionId, selectedFiles: selectedFiles })
+        });
+        const data = await res.json();
+        hideTyping();
+        addMessage('assistant', data.message, data.citations);
+    } catch(e) {
+        hideTyping();
+        addMessage('assistant', 'Sorry, an error occurred. Please try again.');
+    } finally {
+        isLoading = false;
+    }
+}
+
+function addMessage(role, text, citations) {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+
+    let content = '<div class="bubble">' + formatMarkdown(text);
+    if (citations && citations.length > 0) {
+        content += '<div class="citations"><strong>📎 Sources:</strong>';
+        citations.forEach(c => {
+            content += '<div>• ' + c.fileName + ' (' + Math.round(c.relevanceScore*100) + '%)</div>';
+        });
+        content += '</div>';
+    }
+    content += '</div>';
+    div.innerHTML = content;
+    container.appendChild(div);
+    scrollToBottom();
+}
+
+function showTyping() {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message assistant';
+    div.id = 'typing';
+    div.innerHTML = '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+    container.appendChild(div);
+    scrollToBottom();
+}
+
+function hideTyping() {
+    const el = document.getElementById('typing');
+    if (el) el.remove();
+}
+
+function scrollToBottom() {
+    const area = document.getElementById('chatArea');
+    area.scrollTop = area.scrollHeight;
+}
+
+function formatMarkdown(text) {
+    if (!text) return '';
+    // Basic markdown: code blocks, inline code, bold, headers, lists
+    return text
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code style="background:#1a1a2e;padding:2px 6px;border-radius:4px;font-size:12px">$1</code>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^### (.+)$/gm, '<h4 style="margin:12px 0 4px;font-size:14px">$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3 style="margin:12px 0 4px;font-size:15px">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 style="margin:12px 0 4px;font-size:16px">$1</h2>')
+        .replace(/^- (.+)$/gm, '<div style="padding-left:12px">• $1</div>')
+        .replace(/\n/g, '<br>');
+}
+</script>
+</body>
+</html>

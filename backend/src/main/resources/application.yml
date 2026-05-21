@@ -1,0 +1,108 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: spring-integration-assistant
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+# Application Configuration (new "assistant" prefix)
+assistant:
+  grok:
+    api-url: ${GROK_API_URL:https://api.x.ai/v1}
+    api-key: ${GROK_API_KEY:}
+    model: ${GROK_MODEL:grok-3-latest}
+    temperature: ${GROK_TEMPERATURE:0.3}
+    max-tokens: ${GROK_MAX_TOKENS:4096}
+    timeout-seconds: ${GROK_TIMEOUT_SECONDS:60}
+  indexing:
+    csv-path: ${IX_CONFIG_CSV_PATH:/home/dev/Trunk/trunk/IXconfiguration.txt}
+    project-root: ${SOURCE_PROJECT_PATH:/home/dev/Trunk/trunk/interfaceexchange/apps/nep-integration-config/src/main}
+    max-depth: ${INDEXING_MAX_DEPTH:20}
+    exclude-dirs: target,.git,.svn,node_modules,.idea
+    max-file-size: ${INDEXING_MAX_FILE_SIZE:10485760}
+  rag:
+    top-k: ${RAG_TOP_K:10}
+    threshold: ${RAG_THRESHOLD:0.7}
+    boost-factor: ${RAG_BOOST_FACTOR:1.5}
+    max-tokens: ${RAG_MAX_TOKENS:8192}
+    overlap-tokens: ${RAG_OVERLAP_TOKENS:100}
+    chunk-size: ${RAG_CHUNK_SIZE:1000}
+
+# Legacy "app" prefix for backward compatibility with existing services
+# New code should use the "assistant" prefix above.
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  source-project-path: ${SOURCE_PROJECT_PATH:/home/dev/Trunk/trunk/interfaceexchange/apps/nep-integration-config/src/main}
+  ix-config-csv-path: ${IX_CONFIG_CSV_PATH:/home/dev/Trunk/trunk/IXconfiguration.txt}
+  grok:
+    api-key: ${GROK_API_KEY:}
+    api-url: ${GROK_API_URL:https://api.x.ai/v1}
+    model: ${GROK_MODEL:grok-3-latest}
+    temperature: ${GROK_TEMPERATURE:0.3}
+    max-tokens: ${GROK_MAX_TOKENS:4096}
+  rag:
+    chunk-size: ${RAG_CHUNK_SIZE:1000}
+    chunk-overlap: ${RAG_OVERLAP_TOKENS:100}
+    max-results: ${RAG_TOP_K:10}
+    similarity-threshold: ${RAG_THRESHOLD:0.7}
+
+logging:
+  level:
+    root: INFO
+    com.alip.assistant: DEBUG
+    dev.langchain4j: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
+
+---
+# Dev profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:h2:file:./data/assistant-db
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+
+logging:
+  level:
+    com.alip.assistant: DEBUG
+    org.hibernate.SQL: DEBUG
+
+---
+# Prod profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    com.alip.assistant: INFO
+    org.hibernate.SQL: WARN
