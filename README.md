@@ -99,3 +99,4 @@ GROK_API_KEY=your-key-here
 - 🏗️ Spring Integration architecture awareness
 - 🌙 Dark/Light mode
 - 📊 Integration flow analysis
+# spring-integration-assistant
